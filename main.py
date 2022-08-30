@@ -5,13 +5,16 @@ import pyaudio
 import numpy as np
 import time
 import os
-from gpiozero import LED, Button
+#from gpiozero import LED, Button
+
+# saisie au clavier
+import keyboard
 
 #defining buttons and LEDs
-PLAYLEDS = (LED(2), LED(3), LED(4), LED(17))
-RECLEDS = (LED(27), LED(22), LED(10), LED(9))
-PLAYBUTTONS = (Button(11), Button(5), Button(6), Button(13))
-RECBUTTONS = (Button(19), Button(26), Button(21), Button(20))
+# PLAYLEDS = (LED(2), LED(3), LED(4), LED(17))
+# RECLEDS = (LED(27), LED(22), LED(10), LED(9))
+# PLAYBUTTONS = (Button(11), Button(5), Button(6), Button(13))
+# RECBUTTONS = (Button(19), Button(26), Button(21), Button(20))
 
 #get configuration (audio settings etc.) from file
 settings_file = open('Config/settings.prt', 'r')
@@ -76,6 +79,7 @@ class audioloop:
         self.dub_ratio = 1.0
         self.rec_just_pressed = False
         self.play_just_pressed = False
+        
     #incptrs() increments pointers and, when restarting while recording, advances dub ratio
     def incptrs(self):
         if self.readp == self.length - 1:
@@ -86,6 +90,7 @@ class audioloop:
         else:
             self.readp = self.readp + 1
         self.writep = (self.writep + 1) % self.length
+
     #initialize() raises self.length to closest integer multiple of LENGTH and initializes read and write pointers
     def initialize(self):
         print('initialize called')
@@ -111,6 +116,7 @@ class audioloop:
         #debounce flags
         self.rec_just_pressed = False
         self.play_just_pressed = False
+
     #add_buffer() appends a new buffer unless loop is filled to MAXLENGTH
     #expected to only be called before initialization
     def add_buffer(self, data):
@@ -120,6 +126,7 @@ class audioloop:
             return
         self.audio[self.length, :] = np.copy(data)
         self.length = self.length + 1
+
     def toggle_mute(self):
         #if just pressed do nothing
         if self.play_just_pressed:
@@ -133,12 +140,14 @@ class audioloop:
         self.play_just_pressed = True
         time.sleep(debounce_length)
         self.play_just_pressed = False
+
     def is_restarting(self):
         if not self.initialized:
             return False
         if self.readp == 0:
             return True
         return False
+
     #read() reads and returns a buffer of audio from the loop
     def read(self):
         #if not initialized do nothing
@@ -152,12 +161,14 @@ class audioloop:
         tmp = self.readp
         self.incptrs()
         return(self.audio[tmp, :])
+
     #dub() mixes an incoming buffer of audio with the one at writep
     def dub(self, data, fade_in = False, fade_out = False):
         if not self.initialized:
             return
         datadump = np.copy(data)
         self.audio[self.writep, :] = self.audio[self.writep, :] * 0.9 + datadump[:] * self.dub_ratio
+
     #clear() clears the loop so that a new loop of the same or a different length can be recorded on the track
     def clear(self):
         self.audio = np.zeros([MAXLENGTH, CHUNK], dtype = np.int16)
@@ -173,14 +184,17 @@ class audioloop:
         self.preceding_buffer = np.zeros([CHUNK], dtype = np.int16)
         self.rec_just_pressed = False
         self.play_just_pressed = False
+
     def start_recording(self, previous_buffer):
         self.isrecording = True
         self.iswaiting = False
         self.preceding_buffer = np.copy(previous_buffer)
+
     def bouncewait_rec(self):
         self.rec_just_pressed = True
         time.sleep(debounce_length)
         self.rec_just_pressed = False
+
     def bouncewait_play(self):
         self.play_just_pressed = True
         time.sleep(debounce_length)
@@ -198,9 +212,9 @@ def updatevolume():
     peak = np.max(
                   np.abs(
                           loops[0].audio.astype(np.int32)[:][:]
-                        + loops[1].audio.astype(np.int32)[:][:]
-                        + loops[2].audio.astype(np.int32)[:][:]
-                        + loops[3].audio.astype(np.int32)[:][:]
+                        #+ loops[1].audio.astype(np.int32)[:][:]
+                        #+ loops[2].audio.astype(np.int32)[:][:]
+                        #+ loops[3].audio.astype(np.int32)[:][:]
                         )
                  )
     print('peak = ' + str(peak))
@@ -212,15 +226,11 @@ def updatevolume():
 
 #showstatus() checks which loops are recording/playing and lights up LEDs accordingly
 def showstatus():
-    for i in range(4):
-        if loops[i].isrecording:
-            RECLEDS[i].on()
-        else:
-            RECLEDS[i].off()
-        if loops[i].isplaying:
-            PLAYLEDS[i].on()
-        else:
-            PLAYLEDS[i].off()
+    if loops[0].isrecording:
+        print('loop en enregistrement')
+
+    if loops[0].isplaying:
+        print( "loop en lecture")
 
 #set_recording() schedules a loop to start recording, for when master loop next restarts
 def set_recording(loop_number = 0):
@@ -305,9 +315,9 @@ def looping_callback(in_data, frame_count, time_info, status):
     #add to play_buffer only one-fourth of each audio signal times the output_volume
     play_buffer[:] = np.multiply((
                                    loops[0].read().astype(np.int32)[:]
-                                 + loops[1].read().astype(np.int32)[:]
-                                 + loops[2].read().astype(np.int32)[:]
-                                 + loops[3].read().astype(np.int32)[:]
+                                 #+ loops[1].read().astype(np.int32)[:]
+                                 #+ loops[2].read().astype(np.int32)[:]
+                                 #+ loops[3].read().astype(np.int32)[:]
                                  ), output_volume, out= None, casting = 'unsafe').astype(np.int16)
     #current buffer will serve as previous in next iteration
     prev_rec_buffer = np.copy(current_rec_buffer)
@@ -333,27 +343,27 @@ looping_stream = pa.open(
 time.sleep(3)
 #then we turn on all lights to indicate that looper is ready to start looping
 print('ready')
-for led in RECLEDS:
-    led.on()
-for led in PLAYLEDS:
-    led.on()
+# for led in RECLEDS:
+#     print('jour')
+# for led in PLAYLEDS:
+#     print("nuit")
 
 #once all LEDs are on, we wait for the master loop record button to be pressed
-RECBUTTONS[0].wait_for_press()
+keyboard.wait('a')
 #when the button is pressed, set the flag... looping_callback will see this flag. Also start recording on track 1
 setup_isrecording = True
 loops[0].start_recording(prev_rec_buffer)
 
 #turn off all LEDs except master loop record
-for i in range(1, 4):
-    RECLEDS[i].off()
-for led in PLAYLEDS:
-    led.off()
+#for i in range(1, 4):
+#    RECLEDS[i].off()
+#for led in PLAYLEDS:
+#    led.off()
 
 #allow time for button release, otherwise pressing the button once will start and stop the recording
 time.sleep(0.5)
 #now wait for button to be pressed again, then stop recording and initialize master loop
-RECBUTTONS[0].wait_for_press()
+keyboard.wait('a')
 setup_isrecording = False
 setup_donerecording = True
 print(LENGTH)
@@ -369,12 +379,9 @@ time.sleep(0.5)
 #the 4 following functions are here because you seemingly can't pass parameters in button-press event definitions
 def set_rec_1():
     set_recording(1)
-def set_rec_2():
-    set_recording(2)
-def set_rec_3():
-    set_recording(3)
-def set_rec_4():
-    set_recording(4)
+#def set_rec_2():
+#    set_recording(2)
+
 
 finished = False
 #calling finish() will set finished flag, allowing program to break from loop at end of script and exit
@@ -388,20 +395,33 @@ def restart_looper():
     os.execlp('python3', 'python3', 'main.py') #replaces current process with a new instance of the same script
 
 #now defining functions of all the buttons during jam session...
+event = keyboard.read_event()
+if event.event_type == keyboard.KEY_UP and event.name == 'e':
+    loops[0].clear()
+if event.event_type == keyboard.KEY_DOWN and event.name == 'z':
+    loops[0].toggle_mute()
+if event.event_type == keyboard.KEY_UP and event.name == 'a':
+    loops[0].bouncewait_rec()
+if event.event_type == keyboard.KEY_UP and event.name == 'z':
+    loops[0].bouncewait_play()
 
-for i in range(4):
-    RECBUTTONS[i].when_held = loops[i].clear
-    PLAYBUTTONS[i].when_pressed = loops[i].toggle_mute
-    RECBUTTONS[i].when_released = loops[i].bouncewait_rec
-    PLAYBUTTONS[i].when_released = loops[i].bouncewait_play
-    
-RECBUTTONS[0].when_pressed = set_rec_1
-RECBUTTONS[1].when_pressed = set_rec_2
-RECBUTTONS[2].when_pressed = set_rec_3
-RECBUTTONS[3].when_pressed = set_rec_4
+# keyboard.on_release_key("e", loops[0].clear)
+# keyboard.on_press_key("z", loops[0].toggle_mute) 
+# keyboard.on_release_key("a", loops[0].bouncewait_rec)
+# keyboard.on_release_key("z", loops[0].bouncewait_play)
 
-PLAYBUTTONS[3].when_held = finish
-PLAYBUTTONS[0].when_held = restart_looper
+if event.event_type == keyboard.KEY_DOWN and event.name == 'a':
+    set_rec_1()
+ 
+# keyboard.on_press_key("a", set_rec_1)
+#RECBUTTONS[1].when_pressed = set_rec_2
+
+if event.event_type == keyboard.KEY_DOWN and event.name == 'esc':
+    finish()
+if event.event_type == keyboard.KEY_DOWN and event.name == 'r':
+    restart_looper()
+# keyboard.on_release_key("esc", finish)
+# keyboard.on_release_key("r", restart_looper)
 
 #this while loop runs during the jam session.
 while not finished:
