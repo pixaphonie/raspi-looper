@@ -79,7 +79,7 @@ class audioloop:
         self.dub_ratio = 1.0
         self.rec_just_pressed = False
         self.play_just_pressed = False
-        
+
     #incptrs() increments pointers and, when restarting while recording, advances dub ratio
     def incptrs(self):
         if self.readp == self.length - 1:
@@ -394,37 +394,44 @@ def restart_looper():
     pa.terminate() #needed to free audio device for reuse
     os.execlp('python3', 'python3', 'main.py') #replaces current process with a new instance of the same script
 
-#now defining functions of all the buttons during jam session...
-event = keyboard.read_event()
-if event.event_type == keyboard.KEY_UP and event.name == 'e':
-    loops[0].clear()
-if event.event_type == keyboard.KEY_DOWN and event.name == 'z':
-    loops[0].toggle_mute()
-if event.event_type == keyboard.KEY_UP and event.name == 'a':
-    loops[0].bouncewait_rec()
-if event.event_type == keyboard.KEY_UP and event.name == 'z':
-    loops[0].bouncewait_play()
+def press_event(event):
+    if(event.name == "z"):
+        print("press z")
+        loops[0].toggle_mute()
+    if(event.name == "a"):
+        print("press a")
+        set_rec_1()
+    if(event.name == "e"):
+        print("press e")
+        loops[0].clear()
+    if(event.name == "esc"):
+        print("press esc")
+        finish()
+    if(event.name == "r"):
+        print("press r")
+        restart_looper()
 
-# keyboard.on_release_key("e", loops[0].clear)
-# keyboard.on_press_key("z", loops[0].toggle_mute) 
-# keyboard.on_release_key("a", loops[0].bouncewait_rec)
-# keyboard.on_release_key("z", loops[0].bouncewait_play)
+def release_event(event):
+    if(event.name == "z"):
+        print("release z")
+        loops[0].bouncewait_play()
+    if(event.name == "a"):
+        print("release a")
+        loops[0].bouncewait_rec()
+  
 
-if event.event_type == keyboard.KEY_DOWN and event.name == 'a':
-    set_rec_1()
+keyboard.on_press(press_event, suppress=True) 
+keyboard.on_release(release_event, suppress=True)
+
  
-# keyboard.on_press_key("a", set_rec_1)
 #RECBUTTONS[1].when_pressed = set_rec_2
 
-if event.event_type == keyboard.KEY_DOWN and event.name == 'esc':
-    finish()
-if event.event_type == keyboard.KEY_DOWN and event.name == 'r':
-    restart_looper()
-# keyboard.on_release_key("esc", finish)
-# keyboard.on_release_key("r", restart_looper)
 
 #this while loop runs during the jam session.
 while not finished:
+    #keyboard.on_press(press_event) 
+    #keyboard.on_release(release_event)
+    #print("loop while")
     showstatus()
     time.sleep(0.3)
 
